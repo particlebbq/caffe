@@ -134,6 +134,9 @@ def _Net_forward(self, blobs=None, start=None, end=None, **kwargs):
     return {out: self.blobs[out].data for out in outputs}
 
 
+def _Net_update(self):
+  self._update()
+
 def _Net_backward(self, diffs=None, start=None, end=None, **kwargs):
     """
     Backward pass: prepare diffs and run the net backward.
@@ -343,3 +346,4 @@ Net.inputs = _Net_inputs
 Net.outputs = _Net_outputs
 Net.top_names = _Net_get_id_name(Net._top_ids, "_top_names")
 Net.bottom_names = _Net_get_id_name(Net._bottom_ids, "_bottom_names")
+Net.update = _Net_update

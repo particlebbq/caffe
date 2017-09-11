@@ -1,0 +1,112 @@
+name: "GAN_Discriminator_Net"
+
+
+layer {
+  name: "input"
+  type: "Input"
+  top: "generated"
+  top: "gen_adv_is_real_data"
+}
+
+layer {
+  name: "fc1"
+  type: "InnerProduct"
+  bottom: "generated"
+  top: "fc1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  inner_product_param {
+    num_output: 500  #150  
+    bias_term: true
+    weight_filler {
+      type: "gaussian"
+      std: 0.05
+    }
+    bias_filler{
+      type: "constant" 
+      value: -0.1
+    }
+  }
+}
+
+
+
+layer {
+ name: "bn_fc1"
+  type: "BatchNorm"
+  bottom: "fc1"
+  top: "fc1"
+  batch_norm_param {
+    use_global_stats: false
+  }
+}
+
+layer {
+  name: "scale_fc1"
+  type: "Scale"
+  bottom: "fc1"
+  top: "fc1"
+  scale_param {
+    bias_term: true
+  }
+}
+
+
+layer{
+  name: "fc1_relu"
+  type: "ReLU"
+  bottom: "fc1"
+  top: "fc1"
+}
+
+layer {
+  name: "dropout1"
+  type: "Dropout"
+  bottom: "fc1"
+  top: "fc1"
+  dropout_param{
+    dropout_ratio: 0.5
+  }
+}
+
+layer {
+  name: "classifier"
+  type: "InnerProduct"
+  bottom: "fc1" 
+  top: "classifier"
+  param {
+    lr_mult: 0.01
+    decay_mult: 1
+  }
+  inner_product_param {
+    num_output: 2
+    bias_term: true
+    weight_filler {
+      type: "gaussian"
+      std: 0.001
+    }
+    bias_filler{
+      type: "constant" 
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "loss"
+  type: "SoftmaxWithLoss"
+  bottom: "classifier"
+  bottom: "gen_adv_is_real_data"
+  propagate_down: true
+  propagate_down: false
+  top: "loss"
+  top: "probs"
+  #loss_weight: 1
+  softmax_param{
+    axis: 1
+  }
+
+}
+

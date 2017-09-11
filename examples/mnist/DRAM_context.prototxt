@@ -1,0 +1,58 @@
+name: "MnistAttentionClassifierContextNet"
+
+layer {
+  name: "input"
+  type: "Input"
+  top: "data_context"
+}
+
+
+layer {
+  name: "pool"
+  type: "Pooling"
+  bottom: "data_context"
+  propagate_down: true
+  top: "pool"
+  pooling_param {
+    pool: MAX
+    kernel_size: 9
+    stride: 8
+  }
+}
+
+layer {
+  name: "fc1"
+  type: "InnerProduct"
+  bottom: "pool"
+  propagate_down: true
+  top: "fc1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 512
+    weight_filler {
+      type: "gaussian"
+      std: 0.1
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "relu_fc1"
+  type: "TanH"
+  bottom: "fc1"
+  propagate_down: true
+  top: "context_vec"
+}
+
+

@@ -129,10 +129,20 @@ class Net {
   inline const vector<shared_ptr<Blob<Dtype> > >& blobs() const {
     return blobs_;
   }
+  /// @brief returns a map of blob name --> blob index
+  inline const map<string, int>& blob_names_index() const { return blob_names_index_; }
+
+  /// @brief replace the list of blobs with the list passed in as an argument
+  void reset_blobs(vector<shared_ptr<Blob<Dtype> > >& updated);
+
   /// @brief returns the layers
   inline const vector<shared_ptr<Layer<Dtype> > >& layers() const {
     return layers_;
   }
+
+  /// @brief return the list of subnets
+  inline const vector<shared_ptr<Net<Dtype> > >&  subnets(){ return subnets_; }
+
   /// @brief returns the phase: TRAIN or TEST
   inline Phase phase() const { return phase_; }
   /**
@@ -272,6 +282,9 @@ class Net {
   void BackwardDebugInfo(const int layer_id);
   /// @brief Helper for displaying debug info in Update.
   void UpdateDebugInfo(const int param_id);
+ 
+  /// @brief the list of subnets present in this Net
+  vector<shared_ptr<Net<Dtype> > > subnets_;
 
   /// @brief The network name
   string name_;

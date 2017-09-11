@@ -1,0 +1,378 @@
+name: "timestep"
+
+layer{
+  name: "input"
+  type: "Input"
+
+  top: "guidance_lstm_hidden_in"
+  top: "guidance_lstm_cell_in"
+  top: "predict_lstm_hidden_in"
+  top: "predict_lstm_cell_in"
+  top: "data"
+}
+
+layer {
+  name: "guidance_lstm_hidden_in_split"
+  type: "Split"
+  bottom: "guidance_lstm_hidden_in"
+  top: "guidance_lstm_hidden_in_for_lstm"
+  top: "guidance_lstm_hidden_in_for_baseline"
+  top: "guidance_lstm_hidden_in_for_emission"
+}
+
+
+layer{
+  name: "guidance_lstm_hidden_in_for_emission_print"
+  type: "Printout"
+  bottom: "guidance_lstm_hidden_in_for_emission"
+  top: "guidance_lstm_hidden_in_for_emission"
+}
+
+
+layer{
+  name: "emission"
+  type: "Subnet"
+  bottom: "guidance_lstm_hidden_in_for_emission"
+  top: "location_tuple_generated"
+  subnet_param{
+    prototxt_filename: "examples/mnist/DRAM_emission.prototxt"
+    force_backward: true
+  }
+}
+
+layer{
+  name: "location_tuple_generated_print"
+  type: "Printout"
+  bottom: "location_tuple_generated"
+  top: "location_tuple_generated"
+}
+
+
+
+layer{
+  name: "gen_split"
+  type: "Split"
+  bottom: "location_tuple_generated"
+  top: "location_tuple_gen_for_rand"
+  top: "location_tuple_gen_for_gradient"
+}
+
+
+layer{
+  name: "randomization"
+  type: "GaussianSample"
+  bottom: "location_tuple_gen_for_rand"
+  top: "location_tuple_sample"
+  top: "location_tuple_sigma"
+  propagate_down: false
+  gaussian_mc_param{
+    sigma: 0.1
+  }
+}
+
+layer{
+  name: "rand_split"
+  type: "Split" 
+  bottom: "location_tuple_sample"
+  top: "location_tuple_MC"
+  top: "location_tuple_MC_for_gradient"
+}
+
+
+
+
+layer {
+  name: "baseline_fc"
+  type: "InnerProduct"
+  bottom: "guidance_lstm_hidden_in_for_baseline"  
+  propagate_down: false
+  top: "baseline_fc"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 0.1
+    decay_mult: 0.1
+  }
+  inner_product_param {
+    num_output: 512
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+
+layer {
+  name: "baseline_relu"
+  type: "TanH"
+  bottom: "baseline_fc"
+  propagate_down: true
+  top: "baseline_fc_relu"
+}
+
+
+layer {
+  name: "baseline"
+  type: "InnerProduct"
+  bottom: "baseline_fc_relu"
+  propagate_down: true
+  top: "baseline_raw"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 0.1
+    decay_mult: 0.1
+  }
+  inner_product_param {
+    num_output: 1
+    weight_filler {
+      type: "gaussian"
+      std: 0.001
+    }
+    bias_filler {
+      type: "constant"
+      value: -2.197
+    }
+  }
+}
+
+layer{
+  name: "baseline_sigmoid"
+  type: "Sigmoid"
+  bottom: "baseline_raw" 
+  propagate_down: true
+  top: "baseline"
+}
+
+layer{
+  name: "glimpse"
+  type: "Subnet"
+  bottom: "location_tuple_MC"
+  bottom: "data"
+  top: "glimpse_output"
+  subnet_param{
+    prototxt_filename: "examples/mnist/DRAM_glimpse.prototxt"
+    force_backward: true
+  }
+}
+
+
+layer{
+  name: "glimpse_concat"
+  type: "Concat"
+  bottom: "glimpse_output"
+  bottom: "predict_lstm_hidden_in"
+  top: "glimpse_concat"
+  concat_param{
+    axis: 1
+  }
+}
+
+
+layer {
+  name: "glimpse_gate_input"
+  type: "InnerProduct"
+  bottom: "glimpse_concat"
+  propagate_down: true
+  top: "glimpse_gate_input"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 512
+    weight_filler {
+      type: "gaussian"
+      std: 0.2
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "predict_lstm"
+  type: "LSTMUnit"
+  bottom: "predict_lstm_cell_in"
+  bottom: "glimpse_gate_input"
+
+  top:  "predict_lstm_cell_out"
+  top:  "predict_lstm_hidden_out"
+
+  recurrent_param{
+    axis_zero_is_time: false
+    num_hidden: 128
+  }
+
+}
+
+layer {
+  name: "predict_lstm_hidden_split"
+  type: "Split"
+  bottom: "predict_lstm_hidden_out"
+  top: "predict_lstm_hidden_for_guidance"
+  top: "predict_lstm_hidden_for_predict_subnet"
+
+}
+
+
+
+layer{
+  name: "guidance_concat"
+  type: "Concat"
+  bottom: "predict_lstm_hidden_for_guidance"
+  bottom: "guidance_lstm_hidden_in"
+  propagate_down: false
+  propagate_down: true
+  top: "guidance_concat"
+  concat_param{
+    axis: 1
+  }
+}
+
+
+layer {
+  name: "guidance_gate_input"
+  type: "InnerProduct"
+  bottom: "guidance_concat"
+  propagate_down: true
+  top: "guidance_gate_input"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 2048
+    weight_filler {
+      type: "gaussian"
+      std: 0.2
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+
+layer {
+  name: "guidance_lstm"
+  type: "LSTMUnit"
+  bottom: "guidance_lstm_cell_in"
+  bottom: "guidance_gate_input"
+
+  top:  "guidance_lstm_cell_out"
+  top:  "guidance_lstm_hidden_out"
+
+  recurrent_param{
+    axis_zero_is_time: false
+    num_hidden: 512
+  }
+
+}
+
+
+layer{
+  name: "predict"
+  type: "Subnet"
+  bottom: "predict_lstm_hidden_for_predict_subnet"
+  top: "predict_output"
+  subnet_param{
+    prototxt_filename: "examples/mnist/DRAM_predict.prototxt"
+    force_backward: true
+  }
+}
+
+
+#layer {
+#  name: "reward_init"
+#  type: "Zero"
+#  top: "reward_init"
+#  zero_param{
+#    shape: 512
+#    shape: 1
+#  }
+#
+#}
+
+#layer{
+#  name: "reinforcement_gradient"
+#  type: "GaussianMCGradient"
+#  bottom: "location_tuple_gen_for_gradient"  
+#  bottom: "location_tuple_MC_for_gradient"  
+#  bottom: "reward_init"
+#  bottom: "baseline_sig"
+#  top: "reward"
+#  top: "baseline"
+#  top: "curriculum_cutoff"
+#  gaussian_mc_param{
+#    lambda: 0.0003
+#  }
+#}
+
+
+layer{
+  name: "location_tuple_gen_for_gradient_print"
+  type: "Printout"
+  bottom: "location_tuple_gen_for_gradient"
+  top: "location_tuple_gen_for_gradient"
+}
+
+layer{
+  name: "reinforcement_scalefac"
+  type: "ReinforcementScalefac"
+  bottom: "location_tuple_gen_for_gradient"
+  bottom: "baseline"
+  top: "location_tuple_gen_for_gradient_scalefac"
+  top: "reward"
+  top: "curriculum_cutoff"
+  reinforcement_param{
+    lambda: 0.01
+  }
+}
+
+layer{
+  name: "reward_print"
+  type: "Printout"
+  bottom: "reward"
+  top: "reward"
+}
+
+layer{
+  name: "location_tuple_gen_for_gradient_scalefac_print"
+  type: "Printout" 
+  bottom: "location_tuple_gen_for_gradient_scalefac"
+  top: "location_tuple_gen_for_gradient_scalefac"
+}
+
+layer{
+  name: "gaussian_loss"
+  type: "GaussianLoss"
+  bottom: "location_tuple_gen_for_gradient_scalefac"
+  bottom: "location_tuple_sigma"
+  bottom: "location_tuple_MC_for_gradient"
+  top: "gauss_loss" 
+  loss_weight: 1
+  clip_param{
+    cliplimit: -1
+  }
+}

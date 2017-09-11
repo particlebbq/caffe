@@ -1,0 +1,224 @@
+name: "MnistAttentionClassifierGlimpseNet"
+
+
+layer {
+  name: "input"
+  type: "Input"
+  top: "location_tuple_MC"
+  top: "data"
+}
+
+
+layer{
+  name: "glimpseCrop"
+  type: "GlimpseCropping"
+  bottom: "data"
+  bottom: "location_tuple_MC"
+  propagate_down: true
+  propagate_down: true
+  top:  "patch"
+
+  glimpse_cropping_param{
+    window: 21
+    do_downsamp: true
+  }
+}
+
+layer {
+  name: "conv1a"
+  type: "Convolution"
+  bottom: "patch"
+  propagate_down: true
+  top: "conv1a"
+  param {
+    lr_mult: 0.1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 0.1
+    decay_mult: 100
+  }
+  convolution_param {
+    num_output: 32
+    kernel_size: 3
+    stride: 2
+    pad: 0
+    weight_filler {
+      type: "gaussian"
+      std: 0.2
+    }
+    bias_filler {
+      type: "constant"
+      value: -0.2
+    }
+  }
+}
+
+layer {
+  name: "relu1a"
+  type: "ReLU"
+  bottom: "conv1a"
+  propagate_down: true
+  top: "conv1a"
+}
+
+
+
+layer {
+  name: "conv1b"
+  type: "Convolution"
+  bottom: "conv1a"
+  propagate_down: true
+  top: "conv1b"
+  param {
+    lr_mult: 0.1
+    decay_mult: 1
+  } 
+  param {
+    lr_mult: 0.1
+    decay_mult: 20
+  } 
+  convolution_param {
+    num_output: 64
+    kernel_size: 3
+    stride: 2
+    pad: 0
+    weight_filler {
+      type: "gaussian"
+      std: 0.2
+    } 
+    bias_filler {
+      type: "constant"
+      value: -0.2
+    } 
+  } 
+} 
+
+layer {
+  name: "relu1b"
+  type: "ReLU"
+  bottom: "conv1b"
+  propagate_down: true
+  top: "conv1b"
+}
+
+
+layer {
+  name: "fc1"
+  type: "InnerProduct"
+  bottom: "conv1b"
+  propagate_down: true
+  top: "fc1"  
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0.1
+  }
+  inner_product_param {
+    num_output: 512
+    weight_filler {
+      type: "gaussian"
+      std: 0.2
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+
+layer {
+  name: "relu_fc1"
+  type: "ReLU"
+  bottom: "fc1"
+  propagate_down: true
+  top: "fc1_relu"
+}
+
+
+layer {
+  name: "fc2"
+  type: "InnerProduct"
+  bottom: "fc1_relu"
+  propagate_down: true
+  top: "fc2"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0.1
+  }
+  inner_product_param {
+    num_output: 512
+    weight_filler {
+      type: "gaussian"
+      std: 0.2
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+
+layer {
+  name: "tanh_fc2"
+  type: "TanH"
+  bottom: "fc2"
+  propagate_down: true
+  top: "fc2_tanh"
+}
+
+
+
+
+
+layer {
+  name: "location_encoding"
+  type: "InnerProduct"
+  bottom: "location_tuple_MC"
+  propagate_down: true
+  top: "encoded_location"
+  param {
+   lr_mult: 1
+    decay_mult: 1
+  } 
+  param {
+    lr_mult: 2
+    decay_mult: 0.1
+  } 
+  inner_product_param {
+    num_output: 512
+    weight_filler {
+      type: "gaussian"
+      std: 1
+    } 
+    bias_filler {
+      type: "constant"
+      value: 0
+    } 
+  } 
+} 
+
+
+layer {
+  name: "eltwise"
+  type: "Eltwise"
+  bottom: "fc2_tanh" 
+  bottom: "encoded_location"
+  propagate_down: true
+  propagate_down: true
+  top: "glimpse_output"
+
+  eltwise_param{
+    operation: PROD
+  }
+} 
+

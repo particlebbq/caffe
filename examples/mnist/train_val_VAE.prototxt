@@ -1,0 +1,63 @@
+name: "Variational_Autoencoder_Net"
+layer {
+  name: "mnist"
+  type: "Data"
+  top: "X"
+  top: "label"
+  include {
+    phase: TRAIN
+  }
+  transform_param {
+    scale: 0.00390625
+  }
+  data_param {
+    source: "examples/mnist/mnist_train_lmdb"
+    batch_size: 128
+    backend: LMDB
+  }
+}
+layer {
+  name: "mnist"
+  type: "Data"
+  top: "X"
+  top: "label"
+  include {
+    phase: TEST
+  }
+  transform_param {
+    scale: 0.00390625
+  }
+  data_param {
+    source: "examples/mnist/mnist_test_lmdb"
+    batch_size: 128
+    backend: LMDB
+  }
+}
+
+
+layer{
+  name: "autoencoder"
+  type: "VAE"
+  bottom: "X"
+  top: "loss"
+  top: "encoder_sample"
+  top: "decoder_sample"
+  loss_weight: 1
+  loss_weight: 0
+  loss_weight: 0
+  vae_param{
+    encoder_prototxt: "examples/mnist/VAE_encoder.prototxt"
+    decoder_prototxt: "examples/mnist/VAE_decoder.prototxt"
+    encoder_loss_weight: 0.01
+  }
+}
+
+
+#if you want to access the samples, you'll probably be doing it from a python script
+layer {
+  name: "silence"
+  type: "Silence"
+  bottom: "encoder_sample"
+  bottom: "decoder_sample"
+  bottom: "label"
+}

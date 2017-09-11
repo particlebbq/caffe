@@ -44,7 +44,9 @@ __global__ void LSTMUnitForward(const int nthreads, const int dim,
     const Dtype o = X_offset[2 * dim + d];
     const Dtype g = X_offset[3 * dim + d];
     const Dtype c_prev = C_prev[index];
-    const Dtype c = cont[n] * f * c_prev + i * g;
+    Dtype lcont=1;
+    if(cont) lcont=cont[n];
+    const Dtype c = lcont * f * c_prev + i * g;
     C[index] = c;
     const Dtype tanh_c = tanh(c);
     H[index] = o * tanh_c;
@@ -57,7 +59,8 @@ void LSTMUnitLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   const int count = top[1]->count();
   const Dtype* C_prev = bottom[0]->gpu_data();
   const Dtype* X = bottom[1]->gpu_data();
-  const Dtype* cont = bottom[2]->gpu_data();
+  const Dtype* cont = NULL;
+  if(bottom.size()>=3) cont=bottom[2]->gpu_data();
   Dtype* X_acts = X_acts_.mutable_gpu_data();
   Dtype* C = top[0]->mutable_gpu_data();
   Dtype* H = top[1]->mutable_gpu_data();
@@ -96,7 +99,8 @@ __global__ void LSTMUnitBackward(const int nthreads, const int dim,
     Dtype* g_diff = X_diff_offset + 3 * dim + d;
     const Dtype c_term_diff =
         C_diff[index] + H_diff[index] * o * (1 - tanh_c * tanh_c);
-    const Dtype cont_n = cont[n];
+    Dtype cont_n = 1;
+    if(cont) cont_n=cont[n];
     *c_prev_diff = cont_n * c_term_diff * f;
     *i_diff = c_term_diff * g;
     *f_diff = cont_n * c_term_diff * c_prev;
@@ -124,13 +128,16 @@ template <typename Dtype>
 void LSTMUnitLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
     const vector<bool>& propagate_down,
     const vector<Blob<Dtype>*>& bottom) {
-  CHECK(!propagate_down[2]) << "Cannot backpropagate to sequence indicators.";
+  if(bottom.size()>=3) {
+    CHECK(!propagate_down[2]) << "Cannot backpropagate to sequence indicators.";
+  }
   if (!propagate_down[0] && !propagate_down[1]) { return; }
 
   const int count = top[1]->count();
   const Dtype* C_prev = bottom[0]->gpu_data();
   const Dtype* X_acts = X_acts_.gpu_data();
-  const Dtype* cont = bottom[2]->gpu_data();
+  const Dtype* cont = NULL;
+  if(bottom.size()>=3) cont=bottom[2]->gpu_data();
   const Dtype* C = top[0]->gpu_data();
   const Dtype* H = top[1]->gpu_data();
   const Dtype* C_diff = top[0]->gpu_diff();

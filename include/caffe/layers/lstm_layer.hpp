@@ -74,7 +74,8 @@ class LSTMUnitLayer : public Layer<Dtype> {
       const vector<Blob<Dtype>*>& top);
 
   virtual inline const char* type() const { return "LSTMUnit"; }
-  virtual inline int ExactNumBottomBlobs() const { return 3; }
+  virtual inline int MinBottomBlobs() const { return 2; }
+  virtual inline int MaxBottomBlobs() const { return 3; }
   virtual inline int ExactNumTopBlobs() const { return 2; }
 
   virtual inline bool AllowForceBackward(const int bottom_index) const {
@@ -147,6 +148,9 @@ class LSTMUnitLayer : public Layer<Dtype> {
   /// @brief The hidden and output dimension.
   int hidden_dim_;
   Blob<Dtype> X_acts_;
+
+  /// @brief Which axis is time?  true(default) ==> axis 0;  false ==> axis 2
+  bool axis_zero_is_time_;
 };
 
 }  // namespace caffe

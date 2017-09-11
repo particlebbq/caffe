@@ -1,0 +1,75 @@
+name: "MnistAttentionClassifierPredictionNet"
+
+layer {
+  name: "input"
+  type: "Input"
+  top: "predict_lstm_hidden_for_predict_subnet"
+}
+
+
+
+layer {
+  name: "fc1"
+  type: "InnerProduct"
+  bottom: "predict_lstm_hidden_for_predict_subnet"
+  propagate_down: true
+  top: "fc1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 512
+    weight_filler {
+      type: "gaussian"
+      std: 0.1
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer{
+  name: "fc1_relu"
+  type: "TanH"
+  bottom: "fc1"
+  propagate_down: true
+  top: "fc1_relu"
+}
+
+
+
+layer {
+  name: "fc2"
+  type: "InnerProduct"
+  bottom: "fc1_relu"
+  propagate_down: true
+  top: "predict_output"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 10
+    weight_filler {
+      type: "gaussian"
+      std: 0.1
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+
+

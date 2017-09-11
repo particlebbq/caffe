@@ -11,14 +11,22 @@ template <typename Dtype>
 void SoftmaxWithLossLayer<Dtype>::LayerSetUp(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   LossLayer<Dtype>::LayerSetUp(bottom, top);
-  LayerParameter softmax_param(this->layer_param_);
+  LayerParameter softmax_param;
   softmax_param.set_type("Softmax");
+  softmax_param.mutable_softmax_param()->set_axis(
+      this->layer_param_.softmax_param().axis());
   softmax_layer_ = LayerRegistry<Dtype>::CreateLayer(softmax_param);
   softmax_bottom_vec_.clear();
   softmax_bottom_vec_.push_back(bottom[0]);
   softmax_top_vec_.clear();
   softmax_top_vec_.push_back(&prob_);
   softmax_layer_->SetUp(softmax_bottom_vec_, softmax_top_vec_);
+
+  //I keep running into errors where you ask for probs but there's only one 
+  //loss weight.  The solution is always the same: you never want loss weights 
+  //on the probs, so why not just make that happen here?
+  if(top.size()==2 && this->layer_param_.loss_weight_size()<2)
+      this->layer_param_.add_loss_weight(0);
 
   has_ignore_label_ =
     this->layer_param_.loss_param().has_ignore_label();
@@ -39,6 +47,8 @@ template <typename Dtype>
 void SoftmaxWithLossLayer<Dtype>::Reshape(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   LossLayer<Dtype>::Reshape(bottom, top);
+  softmax_bottom_vec_.clear();
+  softmax_bottom_vec_.push_back(bottom[0]);
   softmax_layer_->Reshape(softmax_bottom_vec_, softmax_top_vec_);
   softmax_axis_ =
       bottom[0]->CanonicalAxisIndex(this->layer_param_.softmax_param().axis());
@@ -53,6 +63,11 @@ void SoftmaxWithLossLayer<Dtype>::Reshape(
     // softmax output
     top[1]->ReshapeLike(*bottom[0]);
   }
+
+  vector<int> top_shape;
+  top_shape.push_back(1);
+  top[0]->Reshape(top_shape);
+
 }
 
 template <typename Dtype>
@@ -88,6 +103,13 @@ Dtype SoftmaxWithLossLayer<Dtype>::get_normalizer(
 template <typename Dtype>
 void SoftmaxWithLossLayer<Dtype>::Forward_cpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+
+  //make sure the softmax probs will be based on the right blobs
+  softmax_bottom_vec_.clear();
+  softmax_bottom_vec_.push_back(bottom[0]);
+  softmax_top_vec_.clear();
+  softmax_top_vec_.push_back(&prob_);
+
   // The forward pass computes the softmax prob values.
   softmax_layer_->Forward(softmax_bottom_vec_, softmax_top_vec_);
   const Dtype* prob_data = prob_.cpu_data();
@@ -110,7 +132,9 @@ void SoftmaxWithLossLayer<Dtype>::Forward_cpu(
   }
   top[0]->mutable_cpu_data()[0] = loss / get_normalizer(normalization_, count);
   if (top.size() == 2) {
-    top[1]->ShareData(prob_);
+    //in loop unrolling, you don't generally want a ShareData call; a copy to 
+    //separate memory is safer.
+    caffe_copy(top[1]->count(),prob_.cpu_data(),top[1]->mutable_cpu_data());
   }
 }
 
@@ -121,6 +145,17 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     LOG(FATAL) << this->type()
                << " Layer cannot backpropagate to label inputs.";
   }
+
+  //make sure the softmax probs will be based on the right blobs
+  softmax_bottom_vec_.clear();
+  softmax_bottom_vec_.push_back(bottom[0]);
+  softmax_top_vec_.clear();
+  softmax_top_vec_.push_back(&prob_);
+
+  if(top.size()==2){
+    caffe_copy(top[1]->count(),top[1]->cpu_diff(),prob_.mutable_cpu_diff());
+  }
+
   if (propagate_down[0]) {
     Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
     const Dtype* prob_data = prob_.cpu_data();

@@ -245,6 +245,9 @@ void caffe_gpu_dot(const int n, const Dtype* x, const Dtype* y, Dtype* out);
 template <typename Dtype>
 void caffe_gpu_asum(const int n, const Dtype* x, Dtype* y);
 
+template <typename Dtype>
+void caffe_gpu_absmax(const int n, const Dtype* x, int* r);
+
 template<typename Dtype>
 void caffe_gpu_sign(const int n, const Dtype* x, Dtype* y);
 

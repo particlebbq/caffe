@@ -31,6 +31,13 @@ __global__ void SoftmaxLossForwardGPU(const int nthreads,
 template <typename Dtype>
 void SoftmaxWithLossLayer<Dtype>::Forward_gpu(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
+
+  //make sure the softmax probs will be based on the right blobs
+  softmax_bottom_vec_.clear();
+  softmax_bottom_vec_.push_back(bottom[0]);
+  softmax_top_vec_.clear();
+  softmax_top_vec_.push_back(&prob_);
+
   softmax_layer_->Forward(softmax_bottom_vec_, softmax_top_vec_);
   const Dtype* prob_data = prob_.gpu_data();
   const Dtype* label = bottom[1]->gpu_data();
@@ -59,7 +66,7 @@ void SoftmaxWithLossLayer<Dtype>::Forward_gpu(
   top[0]->mutable_cpu_data()[0] = loss / get_normalizer(normalization_,
                                                         valid_count);
   if (top.size() == 2) {
-    top[1]->ShareData(prob_);
+    caffe_copy(top[1]->count(),prob_.gpu_data(),top[1]->mutable_gpu_data());
   }
 }
 
@@ -94,6 +101,18 @@ void SoftmaxWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
     LOG(FATAL) << this->type()
                << " Layer cannot backpropagate to label inputs.";
   }
+
+  //make sure the softmax probs will be based on the right blobs
+  softmax_bottom_vec_.clear();
+  softmax_bottom_vec_.push_back(bottom[0]);
+  softmax_top_vec_.clear();
+  softmax_top_vec_.push_back(&prob_);
+
+  if(top.size()==2){
+    caffe_copy(top[1]->count(),top[1]->gpu_diff(),prob_.mutable_gpu_diff());
+  }
+
+
   if (propagate_down[0]) {
     Dtype* bottom_diff = bottom[0]->mutable_gpu_diff();
     const Dtype* prob_data = prob_.gpu_data();

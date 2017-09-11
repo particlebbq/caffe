@@ -1,0 +1,121 @@
+name: "VAE_decoder_net"
+
+layer{
+  name: "input" 
+  type: "Input"
+  top: "latent"
+  top: "X"
+}
+
+layer {
+  name: "fc1"
+  type: "InnerProduct"
+  bottom: "latent"
+  propagate_down: true
+  top: "fc1"
+  param {
+   lr_mult: 1
+    decay_mult: 10
+  }
+  param {
+    lr_mult: 1
+    decay_mult: 10
+  }
+  inner_product_param {
+    num_output: 784
+    weight_filler {
+      type: "gaussian"
+      std: 0.001
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+
+layer {
+ name: "bn_fc1"
+  type: "BatchNorm"
+  bottom: "fc1"
+  top: "fc1"
+  batch_norm_param {
+    use_global_stats: false
+  }
+}
+
+layer {
+  name: "scale_fc1"
+  type: "Scale"
+  bottom: "fc1"
+  top: "fc1"
+  scale_param {
+    bias_term: true
+  }
+}
+
+
+layer{
+  name: "fc1_relu"
+  type: "ReLU"
+  bottom: "fc1"
+  top: "fc1"
+}
+
+layer {
+  name: "fc2"
+  type: "InnerProduct"
+  bottom: "fc1"
+  propagate_down: true
+  top: "fc2"
+  param {
+   lr_mult: 1
+    decay_mult: 10
+  }
+  param {
+    lr_mult: 1
+    decay_mult: 10
+  }
+  inner_product_param {
+    num_output: 784
+    weight_filler {
+      type: "gaussian"
+      std: 0.001
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer{
+  name: "fc2_sigmoid"
+  type: "Sigmoid"
+  bottom: "fc2"
+  top: "fc2"
+}
+
+
+layer{
+  name: "loss"
+  type: "BernoulliLoss"
+  bottom: "fc2"
+  bottom: "X"
+  propagate_down: true
+  propagate_down: false
+  top: "loss"
+  clip_param{
+    cliplimit: 0.01
+  }
+}
+
+layer{
+  name: "sample"
+  type: "BernoulliSample"
+  bottom: "fc2"
+  propagate_down: true
+  top: "sample"
+}
+

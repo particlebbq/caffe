@@ -413,6 +413,7 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def("__init__", bp::make_constructor(&Net_Init_Load))
     .def("_forward", &Net<Dtype>::ForwardFromTo)
     .def("_backward", &Net<Dtype>::BackwardFromTo)
+    .def("_update", &Net<Dtype>::Update)
     .def("reshape", &Net<Dtype>::Reshape)
     .def("clear_param_diffs", &Net<Dtype>::ClearParamDiffs)
     // The cast is to select a particular overload.
@@ -428,6 +429,10 @@ BOOST_PYTHON_MODULE(_caffe) {
     .add_property("_blobs", bp::make_function(&Net<Dtype>::blobs,
         bp::return_internal_reference<>()))
     .add_property("layers", bp::make_function(&Net<Dtype>::layers,
+        bp::return_internal_reference<>()))
+    .add_property("_blob_names", bp::make_function(&Net<Dtype>::blob_names,
+        bp::return_value_policy<bp::copy_const_reference>()))
+    .add_property("subnets", bp::make_function(&Net<Dtype>::subnets,
         bp::return_internal_reference<>()))
     .add_property("_blob_names", bp::make_function(&Net<Dtype>::blob_names,
         bp::return_value_policy<bp::copy_const_reference>()))
@@ -464,6 +469,7 @@ BOOST_PYTHON_MODULE(_caffe) {
     .add_property("count",    static_cast<int (Blob<Dtype>::*)() const>(
         &Blob<Dtype>::count))
     .def("reshape",           bp::raw_function(&Blob_Reshape))
+    .def("scale_diff",&Blob<Dtype>::scale_diff)
     .add_property("data",     bp::make_function(&Blob<Dtype>::mutable_cpu_data,
           NdarrayCallPolicies()))
     .add_property("diff",     bp::make_function(&Blob<Dtype>::mutable_cpu_diff,
@@ -473,6 +479,12 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::class_<Layer<Dtype>, shared_ptr<PythonLayer<Dtype> >,
     boost::noncopyable>("Layer", bp::init<const LayerParameter&>())
     .add_property("blobs", bp::make_function(&Layer<Dtype>::blobs,
+          bp::return_internal_reference<>()))
+    .add_property("blob_names", bp::make_function(&Layer<Dtype>::blob_names,
+          bp::return_internal_reference<>()))
+    .add_property("intermediates", bp::make_function(&Layer<Dtype>::intermediates,
+          bp::return_internal_reference<>()))
+    .add_property("intermediate_names", bp::make_function(&Layer<Dtype>::intermediate_names,
           bp::return_internal_reference<>()))
     .def("setup", &Layer<Dtype>::LayerSetUp)
     .def("reshape", &Layer<Dtype>::Reshape)

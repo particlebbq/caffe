@@ -19,6 +19,9 @@ namespace boost { class mutex; }
 
 namespace caffe {
 
+template <typename Dtype>
+class Net;
+
 /**
  * @brief An interface for the units of computation which can be composed into a
  *        Net.
@@ -157,6 +160,7 @@ class Layer {
   vector<shared_ptr<Blob<Dtype> > >& blobs() {
     return blobs_;
   }
+  vector<string>& blob_names(){ return blob_names_;}
 
   /**
    * @brief Returns the layer parameter.
@@ -291,6 +295,16 @@ class Layer {
     param_propagate_down_[param_id] = value;
   }
 
+  inline vector<shared_ptr<Net<Dtype> > > subnets() { return subnets_;}
+
+  //recursive list of intermediates, usually for 
+  //monitoring/debugging/investigations
+  inline vector<shared_ptr<Blob<Dtype> > >& intermediates() {
+    return intermediates_;
+  }
+  inline vector<string>& intermediate_names(){return intermediate_names_;}
+
+
 
  protected:
   /** The protobuf that stores the layer parameters */
@@ -299,12 +313,23 @@ class Layer {
   Phase phase_;
   /** The vector that stores the learnable parameters as a set of blobs. */
   vector<shared_ptr<Blob<Dtype> > > blobs_;
+  vector<string> blob_names_;
+
+  /** for layers with subnets, this is the list of intermediate blobs that a 
+   *  derived class might want to make available 
+   */
+  vector<shared_ptr<Blob<Dtype> > > intermediates_;
+  vector<string> intermediate_names_;
+
   /** Vector indicating whether to compute the diff of each param blob. */
   vector<bool> param_propagate_down_;
 
   /** The vector that indicates whether each top blob has a non-zero weight in
    *  the objective function. */
   vector<Dtype> loss_;
+  
+  /** the list of subnets encapuslated by this layer */
+  vector<shared_ptr<Net<Dtype> > > subnets_;
 
   /** @brief Using the CPU device, compute the layer output. */
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
@@ -382,6 +407,8 @@ class Layer {
     }
   }
 
+
+ public:
   /**
    * Called by SetUp to initialize the weights associated with any top blobs in
    * the loss function. Store non-zero loss weights in the diff blob.
@@ -390,7 +417,8 @@ class Layer {
     const int num_loss_weights = layer_param_.loss_weight_size();
     if (num_loss_weights) {
       CHECK_EQ(top.size(), num_loss_weights) << "loss_weight must be "
-          "unspecified or specified once per top blob.";
+          "unspecified or specified once per top blob. (this error "
+          "cropped up in layer " << this->layer_param_.name() << ")";
       for (int top_id = 0; top_id < top.size(); ++top_id) {
         const Dtype loss_weight = layer_param_.loss_weight(top_id);
         if (loss_weight == Dtype(0)) { continue; }

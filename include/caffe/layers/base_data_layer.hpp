@@ -26,6 +26,8 @@ class BaseDataLayer : public Layer<Dtype> {
   // This method may not be overridden except by the BasePrefetchingDataLayer.
   virtual void LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
+  // Data layers should be shared by multiple solvers in parallel
+  virtual inline bool ShareInParallel() const { return true; }
   virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {}
   // Data layers have no bottoms, so reshaping is trivial.
@@ -47,6 +49,14 @@ template <typename Dtype>
 class Batch {
  public:
   Blob<Dtype> data_, label_;
+  vector<Blob<Dtype>* > multidata_,multilabel_;
+
+  ~Batch(){
+    for(int i=0;i<multidata_.size();i++) delete multidata_[i];
+    for(int i=0;i<multilabel_.size();i++) delete multilabel_[i];
+  }
+
+
 };
 
 template <typename Dtype>

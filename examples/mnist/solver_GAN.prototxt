@@ -1,0 +1,15 @@
+net: "examples/mnist/train_val_GAN.prototxt"
+test_iter: 0
+test_interval: 10000
+test_initialization: true
+base_lr: 0.001
+lr_policy: "step"
+gamma: 0.99
+stepsize: 10000
+display: 20
+max_iter: 100000000
+momentum: 0.5
+weight_decay: 0.0000
+snapshot: 5000
+snapshot_prefix: "examples/mnist/caffenet_GAN"
+solver_mode: GPU

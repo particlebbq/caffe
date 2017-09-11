@@ -19,6 +19,16 @@ void InputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       top[i]->Reshape(param.shape(shape_index));
     }
   }
+
+  this->blobs_.resize(1);
+  this->blobs_[0].reset(new Blob<Dtype>());  //dummy so we will get need_backward
+  vector<int> dummy_shape;
+  dummy_shape.push_back(1);
+  this->blobs_[0]->Reshape(dummy_shape);
+  this->blobs_[0]->mutable_cpu_data();
+  this->param_propagate_down_.resize(this->blobs_.size(), true);
+
+
 }
 
 INSTANTIATE_CLASS(InputLayer);

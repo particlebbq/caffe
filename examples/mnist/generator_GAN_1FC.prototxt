@@ -1,0 +1,120 @@
+name: "GAN_Generator_Net"
+
+layer {
+  name: "random"
+  type: "Random"
+  top: "randvec"
+
+  rand_param{
+    shape: 128
+    shape: 100
+  }
+
+}
+
+layer {
+  name: "fc1"
+  type: "InnerProduct"
+  bottom: "randvec"
+  top: "fc1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 1
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 500
+    weight_filler {
+      type: "gaussian"
+      std: 0.15
+    }
+    bias_filler {
+      type: "constant"
+      value: -0.2
+    }
+  }
+}
+
+
+layer {
+ name: "bn_fc1"
+  type: "BatchNorm"
+  bottom: "fc1"
+  top: "fc1"
+  batch_norm_param {
+    use_global_stats: false
+  }
+}
+
+layer {
+  name: "scale_fc1"
+  type: "Scale"
+  bottom: "fc1"
+  top: "fc1"
+  scale_param {
+    bias_term: true
+  }
+}
+
+
+layer{
+  name: "fc1_relu"
+  type: "ReLU"
+  bottom: "fc1"
+  top: "fc1"
+}
+
+layer {
+  name: "gen_raw"
+  type: "InnerProduct"
+  bottom: "fc1"
+  top: "gen_raw"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 1
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 784
+    weight_filler {
+      type: "gaussian"
+      std: 0.01  
+    }
+    bias_filler {
+      type: "constant"
+      value: -2  
+    }
+  }
+}
+
+layer {
+  name: "sigmoid"
+  type: "Sigmoid"
+  bottom: "gen_raw"
+  top: "gen_raw"
+}
+
+
+layer {
+  name: "reshape"
+  type: "Reshape"
+  bottom: "gen_raw"
+  top: "generated"
+  reshape_param{
+    shape {
+      dim: 128
+      dim: 1
+      dim: 28
+      dim: 28
+    }
+  }
+}
+
+
+

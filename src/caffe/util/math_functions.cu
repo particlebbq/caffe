@@ -456,4 +456,14 @@ void caffe_gpu_rng_gaussian(const int n, const double mu, const double sigma,
       curandGenerateNormalDouble(Caffe::curand_generator(), r, n, mu, sigma));
 }
 
+template<>
+void caffe_gpu_absmax<float>(const int n, const float* x, int* r){
+   CUBLAS_CHECK(cublasIsamax(Caffe::cublas_handle(), n, x, 1, r));
+}
+
+template<>
+void caffe_gpu_absmax<double>(const int n, const double* x, int* r){
+   CUBLAS_CHECK(cublasIdamax(Caffe::cublas_handle(), n, x, 1, r));
+}
+
 }  // namespace caffe

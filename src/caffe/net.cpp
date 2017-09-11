@@ -121,6 +121,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
     layers_[layer_id]->SetUp(bottom_vecs_[layer_id], top_vecs_[layer_id]);
     LOG_IF(INFO, Caffe::root_solver())
         << "Setting up " << layer_names_[layer_id];
+
     for (int top_id = 0; top_id < top_vecs_[layer_id].size(); ++top_id) {
       if (blob_loss_weights_.size() <= top_id_vecs_[layer_id][top_id]) {
         blob_loss_weights_.resize(top_id_vecs_[layer_id][top_id] + 1, Dtype(0));
@@ -280,7 +281,11 @@ void Net<Dtype>::FilterNet(const NetParameter& param,
       }
     }
     if (layer_included) {
+      int ilayer=param_filtered->layer_size();
       param_filtered->add_layer()->CopyFrom(layer_param);
+      if(net_state.stage_size()>0) 
+        param_filtered->mutable_layer(ilayer)->mutable_subnet_param()->set_stage(
+          net_state.stage(0));
     }
   }
 }
@@ -422,8 +427,13 @@ void Net<Dtype>::AppendParam(const NetParameter& param, const int layer_id,
                              const int param_id) {
   const LayerParameter& layer_param = layers_[layer_id]->layer_param();
   const int param_size = layer_param.param_size();
-  string param_name =
-      (param_size > param_id) ? layer_param.param(param_id).name() : "";
+  ostringstream oss_def;
+  oss_def << layer_param.name() << "_param_" << param_id;
+  string default_name(oss_def.str());
+  if(layers_[layer_id]->blob_names().size()==layers_[layer_id]->blobs().size()) {
+    default_name=layers_[layer_id]->blob_names()[param_id];
+  }
+  string param_name = default_name;
   if (param_name.size()) {
     param_display_names_.push_back(param_name);
   } else {
@@ -975,6 +985,49 @@ const shared_ptr<Layer<Dtype> > Net<Dtype>::layer_by_name(
   }
   return layer_ptr;
 }
+
+
+template <typename Dtype>
+void Net<Dtype>::reset_blobs(vector<shared_ptr<Blob<Dtype> > >& updated){
+  if(updated.size()!=blobs_.size()) 
+    LOG(FATAL) << "Net<Dtype>::reset_blobs called with a blob list of "
+               << "different length than the internal blob list";
+
+  for(int i=0;i<blobs_.size();i++){
+    if(blobs_[i]->num_axes()!=updated[i]->num_axes()){
+      LOG(FATAL) 
+        << "Net<Dtype>::reset_blobs called but the new version of blob " 
+        << i << " differs in shape from the old one";
+    }
+    for(int idim=0;idim<blobs_[i]->num_axes();idim++){
+      if(blobs_[i]->shape()[idim]!=updated[i]->shape()[idim]) {
+        LOG(FATAL) 
+          << "Net<Dtype>::reset_blobs called but the new version of blob " 
+          << i << " differs in shape from the old one";
+      }
+      blobs_[i]=updated[i];
+    }
+  }
+
+  //also: use bottom_id_vecs_ and top_id_vecs_ to update the pointers in 
+  //bottom_vecs_ and top_vecs_
+  for(int i=0;i<bottom_id_vecs_.size();i++){
+    for(int j=0;j<bottom_id_vecs_[i].size();j++){
+      bottom_vecs_[i][j]=blobs_[bottom_id_vecs_[i][j]].get();
+    }
+  }
+  for(int i=0;i<top_id_vecs_.size();i++){
+    for(int j=0;j<top_id_vecs_[i].size();j++){
+      top_vecs_[i][j]=blobs_[top_id_vecs_[i][j]].get();
+    }
+  }
+  
+  //finally:  layers that use this function (like UnrollLayer) may zero out
+  //some or all of the network's diff blobs.  Odds are we will still want 
+  //the loss weights, though, so let's reset them here.
+  for(int i=0;i<layers_.size();i++) layers_[i]->SetLossWeights(top_vecs_[i]);
+};
+
 
 INSTANTIATE_CLASS(Net);
 

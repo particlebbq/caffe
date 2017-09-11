@@ -20,18 +20,38 @@ inline Dtype tanh(Dtype x) {
 template <typename Dtype>
 void LSTMUnitLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
-  const int num_instances = bottom[0]->shape(1);
-  for (int i = 0; i < bottom.size(); ++i) {
-    if (i == 2) {
-      CHECK_EQ(2, bottom[i]->num_axes());
-    } else {
-      CHECK_EQ(3, bottom[i]->num_axes());
+  axis_zero_is_time_=this->layer_param_.recurrent_param().axis_zero_is_time();
+
+  if(axis_zero_is_time_){
+    const int num_instances = bottom[0]->shape(1);
+    for (int i = 0; i < bottom.size(); ++i) {
+      if (i == 2) {
+        CHECK_EQ(2, bottom[i]->num_axes());
+      } else {
+        CHECK_EQ(3, bottom[i]->num_axes());
+      }
+      CHECK_EQ(1, bottom[i]->shape(0));
+      CHECK_EQ(num_instances, bottom[i]->shape(1));
     }
-    CHECK_EQ(1, bottom[i]->shape(0));
-    CHECK_EQ(num_instances, bottom[i]->shape(1));
+    hidden_dim_ = bottom[0]->shape(2);
+    CHECK_EQ(num_instances, bottom[1]->shape(1));
+    CHECK_EQ(4 * hidden_dim_, bottom[1]->shape(2));
+  } else {
+    const int num_instances = bottom[0]->shape(0);
+    hidden_dim_=this->layer_param_.recurrent_param().num_hidden();
+    for (int i = 0; i < bottom.size(); ++i) {
+      if (i == 2) {
+        CHECK_EQ(2, bottom[i]->num_axes());
+        CHECK_EQ(hidden_dim_,bottom[i]->shape(1));
+      } else {
+        CHECK_EQ(2, bottom[i]->num_axes());
+      }
+      CHECK_EQ(num_instances, bottom[i]->shape(0));
+    }
+    CHECK_EQ(num_instances, bottom[1]->shape(0));
+    CHECK_EQ(4 * hidden_dim_, bottom[1]->shape(1));
+    CHECK_EQ(hidden_dim_,bottom[0]->shape(1));
   }
-  hidden_dim_ = bottom[0]->shape(2);
-  CHECK_EQ(4 * hidden_dim_, bottom[1]->shape(2));
   top[0]->ReshapeLike(*bottom[0]);
   top[1]->ReshapeLike(*bottom[0]);
   X_acts_.ReshapeLike(*bottom[1]);
@@ -40,11 +60,19 @@ void LSTMUnitLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void LSTMUnitLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
-  const int num = bottom[0]->shape(1);
+  int num = bottom[0]->shape(1);
+  if(!axis_zero_is_time_) num = bottom[0]->shape(0);
+
   const int x_dim = hidden_dim_ * 4;
   const Dtype* C_prev = bottom[0]->cpu_data();
   const Dtype* X = bottom[1]->cpu_data();
-  const Dtype* cont = bottom[2]->cpu_data();
+  const Dtype* cont = NULL;
+  if(bottom.size()>=3){
+    cont=bottom[2]->cpu_data();
+  } else {
+    cont=new Dtype(1);
+  }
+
   Dtype* C = top[0]->mutable_cpu_data();
   Dtype* H = top[1]->mutable_cpu_data();
   for (int n = 0; n < num; ++n) {
@@ -64,8 +92,10 @@ void LSTMUnitLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     X += x_dim;
     C += hidden_dim_;
     H += hidden_dim_;
-    ++cont;
+    if(bottom.size()==3) ++cont;
   }
+  if(bottom.size()<3) delete cont;
+
 }
 
 template <typename Dtype>
@@ -74,11 +104,19 @@ void LSTMUnitLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   CHECK(!propagate_down[2]) << "Cannot backpropagate to sequence indicators.";
   if (!propagate_down[0] && !propagate_down[1]) { return; }
 
-  const int num = bottom[0]->shape(1);
+  int num = bottom[0]->shape(1);
+  if(!axis_zero_is_time_) num = bottom[0]->shape(0);
+
   const int x_dim = hidden_dim_ * 4;
   const Dtype* C_prev = bottom[0]->cpu_data();
   const Dtype* X = bottom[1]->cpu_data();
-  const Dtype* cont = bottom[2]->cpu_data();
+  const Dtype* cont = NULL;
+  if(bottom.size()>=3){
+    cont=bottom[2]->cpu_data();
+  } else {
+    cont=new Dtype(1);
+  }
+
   const Dtype* C = top[0]->cpu_data();
   const Dtype* H = top[1]->cpu_data();
   const Dtype* C_diff = top[0]->cpu_diff();
@@ -116,8 +154,10 @@ void LSTMUnitLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     H_diff += hidden_dim_;
     X_diff += x_dim;
     C_prev_diff += hidden_dim_;
-    ++cont;
+    if(bottom.size()==3) ++cont;
   }
+  if(bottom.size()<3) delete cont;
+
 }
 
 #ifdef CPU_ONLY
