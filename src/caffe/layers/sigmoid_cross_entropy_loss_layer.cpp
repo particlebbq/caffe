@@ -30,6 +30,11 @@ void SigmoidCrossEntropyLossLayer<Dtype>::LayerSetUp(
   } else {
     normalization_ = LossParameter_NormalizationMode_BATCH_SIZE;
   }
+
+  vector<int> loss_shape;
+  loss_shape.push_back(1);
+  top[0]->Reshape(loss_shape);
+
 }
 
 template <typename Dtype>
@@ -41,6 +46,11 @@ void SigmoidCrossEntropyLossLayer<Dtype>::Reshape(
   CHECK_EQ(bottom[0]->count(), bottom[1]->count()) <<
       "SIGMOID_CROSS_ENTROPY_LOSS layer inputs must have the same count.";
   sigmoid_layer_->Reshape(sigmoid_bottom_vec_, sigmoid_top_vec_);
+
+  vector<int> loss_shape;
+  loss_shape.push_back(1);
+  top[0]->Reshape(loss_shape);
+
 }
 
 // TODO(shelhamer) loss normalization should be pulled up into LossLayer,

@@ -1,4 +1,5 @@
-#Caffe-subnet
+# Caffe-subnet
+
 This fork of caffe includes implementations of a few tools for reinforcement learning, generative adversarial 
 networks, and variational autoencoders.  Some of the features available in this fork are:
 

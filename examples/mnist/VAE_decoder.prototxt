@@ -91,30 +91,27 @@ layer {
 }
 
 layer{
-  name: "fc2_sigmoid"
-  type: "Sigmoid"
-  bottom: "fc2"
-  top: "fc2"
-}
-
-
-layer{
   name: "loss"
-  type: "BernoulliLoss"
+  type: "SigmoidCrossEntropyLoss"
   bottom: "fc2"
   bottom: "X"
   propagate_down: true
   propagate_down: false
   top: "loss"
-  clip_param{
-    cliplimit: 0.01
-  }
 }
+
+layer{
+  name: "fc2_sigmoid"
+  type: "Sigmoid"
+  bottom: "fc2"
+  top: "fc2_sig"
+}
+
 
 layer{
   name: "sample"
   type: "BernoulliSample"
-  bottom: "fc2"
+  bottom: "fc2_sig"
   propagate_down: true
   top: "sample"
 }
